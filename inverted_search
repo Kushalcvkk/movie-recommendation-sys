@@ -1,0 +1,37 @@
+import pandas as pd
+import re
+from collections import defaultdict
+movies = pd.read_csv('path_to_your_csv')
+
+movies['search_text'] = (movies['title'].fillna('') + ' ' + movies['overview'].fillna('')).str.lower()
+
+
+inverted_index = defaultdict(set)
+
+for idx, text in enumerate(movies['search_text']):
+    words = re.findall(r'\b\w+\b', text)
+    for word in set(words):  # Use set to avoid duplicates
+        inverted_index[word].add(idx)
+
+# search function
+def search_movies(query, index, data, top_k=10):
+    query_words = re.findall(r'\b\w+\b', query.lower())
+    matched_ids = None
+
+    for word in query_words:
+        if word in index:
+            if matched_ids is None:
+                matched_ids = index[word].copy()
+            else:
+                matched_ids &= index[word]  # intersection for AND query
+        else:
+            matched_ids = set()
+            break
+
+    if not matched_ids:
+        return pd.DataFrame(columns=data.columns)
+
+    return data.loc[list(matched_ids)].head(top_k)
+
+search_results = search_movies("space mission", inverted_index, movies)
+print(search_results[['title', 'overview']])
